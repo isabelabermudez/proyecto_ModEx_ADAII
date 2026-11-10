@@ -1,7 +1,8 @@
 import os
 from red_social import cargar_red_social
 from calculos import extremismo, esfuerzo, es_aplicable
-from soluciones import modexFB
+from soluciones import modexFB, modexV
+import time
 
 CARPETA_PRUEBAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Bateria de pruebas")
 
@@ -38,8 +39,18 @@ def menu():
         print(f"Red cargada: n={red.n}, R_max={red.r_max}")
         print(f"Extremismo de la red: {extremismo(red):.4f}")
         print("Resolviendo con fuerza bruta...")
+        start_time = time.perf_counter()
         E, Esf, Ext = modexFB(red) 
+        end_time = time.perf_counter()
         print(f"Fuerza bruta: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
+        print(f"Tiempo de ejecución: {end_time - start_time:.6f} segundos")
+
+        print("Resolviendo con algoritmo voraz...")
+        start_time = time.perf_counter()
+        E, Esf, Ext = modexV(red)
+        end_time = time.perf_counter()
+        print(f"Algoritmo voraz: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
+        print(f"Tiempo de ejecución: {end_time - start_time:.6f} segundos")
 
 
 def main():

@@ -40,3 +40,25 @@ def modexFB(red):
     explorar(0, 0, 0)
     return evaluar(red, mejor["E"])   # Devuelve la tripleta (E, Esfuerzo(RS, E), Ext(Mod(RS, E))
 
+## Funcion que implementa el algoritmo voraz para resolver el problema de ModEx. No garantiza la mejor solución, pero es eficiente y rápida.
+def modexV(red):
+    n = red.n
+    costos = [costo_agente(a) for a in red.agentes]
+    aportes = [aporte_agente(a) for a in red.agentes]
+
+    E = [0] * n   # estrategia en construcción
+
+    def razon(i):
+        return float("inf") if costos[i] == 0 else aportes[i] / costos[i]
+ 
+    razones_ordenadas = sorted(range(n), key=razon, reverse=True)
+    
+    # Aplicar el algoritmo voraz
+    esfuerzo_total = 0
+    for i in razones_ordenadas:
+        if esfuerzo_total + costos[i] <= red.r_max:  # si no cabe, se salta y se sigue con el siguiente
+            E[i] = 1
+            esfuerzo_total += costos[i]
+
+    return evaluar(red, E)   # Devuelve la tripleta (E, Esfuerzo(RS, E), Ext(Mod(RS, E))
+
