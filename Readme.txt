@@ -24,7 +24,7 @@ Ejecución
 ---------
 1. Abre una terminal en la carpeta del proyecto.
 2. Ejecuta:
-   python main.py
+   python run_interface.py
 
 Qué hace la interfaz
 --------------------

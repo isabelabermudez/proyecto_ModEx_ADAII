@@ -64,9 +64,8 @@ def modexV(red):
 
 
 def modexPD(red):
-    """Se deja reservado para la implementación de Programación Dinámica.
+    """Solución de programación dinámica para el problema de ModEx.
 
-    Esta versión de la interfaz no lo usa todavía; el usuario lo completará más adelante.
     """
     raise NotImplementedError(
         "modexPD aún no está implementado. Deja este punto listo para que lo completes en la solución final."
