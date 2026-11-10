@@ -5,10 +5,13 @@ from soluciones import modexFB, modexV
 import time
 
 CARPETA_PRUEBAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Bateria de pruebas")
-
+TEST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test")
 
 def ruta_prueba(numero):
     return os.path.join(CARPETA_PRUEBAS, f"Prueba{numero}.txt")
+
+def probar_prueba(numero):
+    return os.path.join(TEST, f"Prueba{numero}.txt")
 
 
 def probar_prueba1():
@@ -29,7 +32,8 @@ def menu():
         if not entrada:
             break
         try:
-            red = cargar_red_social(ruta_prueba(int(entrada)))
+            """red = cargar_red_social(ruta_prueba(int(entrada)))"""
+            red = cargar_red_social(probar_prueba(int(entrada)))
         except ValueError:
             print("Escribe un número entero.")
             continue
@@ -54,7 +58,6 @@ def menu():
 
 
 def main():
-    probar_prueba1()
     menu()
 
 
