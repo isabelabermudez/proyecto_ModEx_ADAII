@@ -1,6 +1,7 @@
 import os
 from red_social import cargar_red_social
 from calculos import extremismo, esfuerzo, es_aplicable
+from soluciones import modexFB
 
 CARPETA_PRUEBAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Bateria de pruebas")
 
@@ -36,6 +37,9 @@ def menu():
             continue
         print(f"Red cargada: n={red.n}, R_max={red.r_max}")
         print(f"Extremismo de la red: {extremismo(red):.4f}")
+        print("Resolviendo con fuerza bruta...")
+        E, Esf, Ext = modexFB(red) 
+        print(f"Fuerza bruta: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
 
 
 def main():
