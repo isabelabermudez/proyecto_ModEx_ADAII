@@ -62,3 +62,12 @@ def modexV(red):
 
     return evaluar(red, E)   # Devuelve la tripleta (E, Esfuerzo(RS, E), Ext(Mod(RS, E))
 
+
+def modexPD(red):
+    """Solución de programación dinámica para el problema de ModEx.
+
+    """
+    raise NotImplementedError(
+        "modexPD aún no está implementado. Deja este punto listo para que lo completes en la solución final."
+    )
+
