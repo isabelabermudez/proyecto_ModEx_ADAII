@@ -8,12 +8,13 @@ Archivos importantes
 --------------------
 - red_social.py: modelos Agente y RedSocial; carga de entrada.
 - calculos.py: funciones de costo, aporte, esfuerzo, extremismo y validación.
-- soluciones.py: funciones modexFB y modexV. El punto modexPD queda preparado pero aún no implementado.
+- soluciones.py: implementaciones de modexFB, modexV y modexPD.
 - gui.py: interfaz gráfica principal con Tkinter.
 - generador.py: generador de casos.
 - io_salida.py: lectura/escritura de archivos de entrada y salida.
 - verificacion.py: comprobación de esfuerzo y validación del costo.
-- main.py: lanzador de la aplicación.
+- main_shell.py: menú de consola para ejecutar los algoritmos sobre pruebas de la batería.
+- run_interface.py: lanzador de la interfaz gráfica.
 
 Requisitos
 ----------
@@ -26,17 +27,20 @@ Ejecución
 2. Ejecuta:
    python run_interface.py
 
+Para usar el menú de consola:
+   python main_shell.py
+
 Qué hace la interfaz
 --------------------
 - Cargar una red desde un archivo .txt.
 - Abrir cualquiera de las pruebas de la carpeta "Bateria de pruebas".
 - Ver la tabla de agentes con opinión, receptividad, influencia, costo y aporte.
-- Ejecutar fuerza bruta y voraz.
+- Ejecutar fuerza bruta, voraz y programación dinámica.
 - Mostrar resumen, tiempo de ejecución y validación del costo.
 - Guardar salida en formato ModEx.
 - Verificar una salida existente.
 - Generar casos aleatorios, difíciles y fáciles.
-- Exportar comparación a CSV.
+- Comparar algoritmos y exportar la comparación a CSV.
 
 Formato de entrada
 ------------------
@@ -69,10 +73,11 @@ mod_(n-1)
 Prueba de validación
 --------------------
 1. Carga la prueba Prueba1.txt.
-2. Ejecuta el algoritmo Voraz.
-3. Verifica que el esfuerzo y el extremismo coinciden con la lógica de calculos.py.
-4. Guarda la salida y vuelve a cargarla para comprobar que la verificación detecta consistencia.
+2. Ejecuta fuerza bruta, voraz y programación dinámica desde la pestaña Salida.
+3. Compara los resultados y verifica que el esfuerzo y extremismo coinciden.
+4. Usa "Comparar con óptimo (PD)" para comprobar la calidad de otra estrategia.
 
 Nota
 ----
-La programación dinámica quedará preparada para que tú la implementes después; la interfaz ya está diseñada para integrarla sin reescribir la estructura general.
+La programación dinámica está implementada en soluciones.py y conectada a la interfaz y al menú de consola.
+Antes de ejecutar PD con una tabla grande, la aplicación advierte sobre el uso potencial de memoria.

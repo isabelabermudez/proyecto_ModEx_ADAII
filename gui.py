@@ -12,6 +12,7 @@ from soluciones import modexFB, modexV, modexPD
 from verificacion import comparar_optimalidad, verificar_estrategia
 
 CARPETA_PRUEBAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Bateria de pruebas")
+UMBRAL_CELDAS_PD = 1_000_000
 
 
 class ModExApp(tk.Tk):
@@ -291,14 +292,22 @@ class ModExApp(tk.Tk):
                 return
 
         if nombre == "Programación dinámica":
-            messagebox.showinfo(
-                "PD pendiente",
-                "La programación dinámica aún no está implementada en esta versión. Deja este punto listo para que la implementes más adelante.",
-            )
-            return
+            if not self._confirmar_memoria_pd(self.red):
+                return
 
         self.estado_label.set("Calculando...")
         self._ejecutar_en_hilo(fn, nombre)
+
+    def _confirmar_memoria_pd(self, red):
+        celdas = (red.n + 1) * (red.r_max + 1)
+        if celdas <= UMBRAL_CELDAS_PD:
+            return True
+        return messagebox.askyesno(
+            "Uso de memoria de programación dinámica",
+            f"La tabla de PD tendrá aproximadamente {celdas:,} celdas "
+            f"(n={red.n}, R_max={red.r_max}) y podría consumir mucha memoria. "
+            "¿Deseas continuar?",
+        )
 
     def _ejecutar_en_hilo(self, fn, nombre_alg):
         def tarea():
@@ -306,7 +315,7 @@ class ModExApp(tk.Tk):
             try:
                 resultado = fn(self.red)
             except Exception as exc:
-                self.after(0, lambda: self._on_error(f"{nombre_alg}: {exc}"))
+                self.after(0, lambda error=exc: self._on_error(f"{nombre_alg}: {error}"))
                 return
             elapsed = time.perf_counter() - inicio
             self.after(0, lambda: self._mostrar_resultado(nombre_alg, resultado, elapsed))
@@ -343,6 +352,7 @@ class ModExApp(tk.Tk):
             f"Ext resultante: {ext:.6f}\n"
             f"Reducción: {reduccion:.2f}%\n"
             f"Esfuerzo: {esf} / R_max={self.red.r_max}\n"
+            f"Número de agentes: {self.red.n}\n"
             f"Agentes moderados: {total_moderados}\n"
             f"Aplicable: {'Sí' if aplicable else 'No'}"
         )
@@ -369,23 +379,36 @@ class ModExApp(tk.Tk):
             messagebox.showwarning("Sin resultado", "Primero ejecuta un algoritmo sobre una red.")
             return
 
-        try:
-            _, _, ext_pd = modexPD(self.red)
-        except NotImplementedError:
-            messagebox.showinfo(
-                "PD no implementada",
-                "La programación dinámica sigue sin implementarse. Este botón queda preparado para cuando la implementes.",
-            )
+        red = self.red
+        if not self._confirmar_memoria_pd(red):
             return
 
         ext_alg = self.resultado_actual["Ext"]
-        brecha = comparar_optimalidad(ext_alg, ext_pd)
-        info = (
-            f"Ext algoritmo: {ext_alg:.6f}\n"
-            f"Ext óptimo (PD): {ext_pd:.6f}\n"
-            f"Brecha: {brecha:.2f}%\n"
-            f"¿Óptimo?: {'Sí' if abs(ext_alg - ext_pd) < 1e-9 else 'No'}"
-        )
+        nombre_alg = self.resultado_actual["algoritmo"]
+        self.estado_label.set("Calculando óptimo con PD...")
+
+        def tarea():
+            inicio = time.perf_counter()
+            try:
+                _, _, ext_pd = modexPD(red)
+            except Exception as exc:
+                self.after(0, lambda error=exc: self._on_error(f"Programación dinámica: {error}"))
+                return
+            elapsed = time.perf_counter() - inicio
+            brecha = comparar_optimalidad(ext_alg, ext_pd)
+            info = (
+                f"Ext {nombre_alg}: {ext_alg:.6f}\n"
+                f"Ext óptimo (PD): {ext_pd:.6f}\n"
+                f"Brecha: {brecha:.2f}%\n"
+                f"Tiempo de PD: {elapsed:.4f}s\n"
+                f"¿Óptimo?: {'Sí' if abs(ext_alg - ext_pd) < 1e-9 else 'No'}"
+            )
+            self.after(0, lambda: self._mostrar_comparacion_optimo(info))
+
+        threading.Thread(target=tarea, daemon=True).start()
+
+    def _mostrar_comparacion_optimo(self, info):
+        self.estado_label.set("Comparación con PD terminada.")
         messagebox.showinfo("Comparación con óptimo", info)
 
     def guardar_entrada_actual(self):
@@ -430,30 +453,48 @@ class ModExApp(tk.Tk):
             messagebox.showwarning("Sin entrada", "Primero carga una red social.")
             return
 
+        red = self.red
+        if not self._confirmar_memoria_pd(red):
+            return
+
         self.comparacion_tree.delete(*self.comparacion_tree.get_children())
-        filas = []
+        self.estado_label.set("Comparando algoritmos...")
 
-        for nombre, fn in [("Fuerza bruta", modexFB), ("Voraz", modexV)]:
-            if nombre == "Fuerza bruta" and self.red.n > self.limite_fb:
-                continue
-            inicio = time.perf_counter()
-            try:
-                E, es, ext = fn(self.red)
-            except NotImplementedError:
-                continue
-            elapsed = time.perf_counter() - inicio
-            apl = es_aplicable(self.red, E)
-            filas.append((nombre, f"{ext:.6f}", es, f"{elapsed:.4f}", "Sí" if apl else "No", "-"))
+        def tarea():
+            resultados = []
+            algoritmos = [("Fuerza bruta", modexFB), ("Voraz", modexV), ("Programación dinámica", modexPD)]
+            ext_optimo = None
+            for nombre, fn in algoritmos:
+                if nombre == "Fuerza bruta" and red.n > self.limite_fb:
+                    continue
+                inicio = time.perf_counter()
+                try:
+                    E, es, ext = fn(red)
+                except Exception as exc:
+                    self.after(0, lambda error=exc, algoritmo=nombre: self._on_error(f"{algoritmo}: {error}"))
+                    return
+                elapsed = time.perf_counter() - inicio
+                if nombre == "Programación dinámica":
+                    ext_optimo = ext
+                resultados.append((nombre, E, es, ext, elapsed))
 
-        try:
-            _, _, ext_pd = modexPD(self.red)
-        except NotImplementedError:
-            filas.append(("Programación dinámica", "No implementada", "-", "-", "-", "-"))
-        else:
-            filas.append(("Programación dinámica", f"{ext_pd:.6f}", "-", "-", "-", "-"))
+            filas = []
+            for nombre, E, es, ext, elapsed in resultados:
+                aplicable = es_aplicable(red, E)
+                optimo = "-" if ext_optimo is None else (
+                    "Sí" if abs(ext - ext_optimo) < 1e-9 else "No"
+                )
+                filas.append(
+                    (nombre, f"{ext:.6f}", es, f"{elapsed:.4f}", "Sí" if aplicable else "No", optimo)
+                )
+            self.after(0, lambda: self._mostrar_comparacion(filas))
 
+        threading.Thread(target=tarea, daemon=True).start()
+
+    def _mostrar_comparacion(self, filas):
         for row in filas:
             self.comparacion_tree.insert("", "end", values=row)
+        self.estado_label.set("Comparación terminada.")
 
     def exportar_tabla_comparacion(self):
         if not self.comparacion_tree.get_children():
@@ -545,40 +586,55 @@ class ModExApp(tk.Tk):
             return
 
         self.bateria_tree.delete(*self.bateria_tree.get_children())
-        fb_limite = int(self.umbral_fb.get())
+        self.estado_label.set("Ejecutando batería...")
 
-        for i in range(1, 36):
-            ruta = os.path.join(CARPETA_PRUEBAS, f"Prueba{i}.txt")
-            if not os.path.exists(ruta):
-                continue
-            try:
-                red = cargar_red_social(ruta)
-            except Exception:
-                continue
+        def tarea():
+            filas = []
+            omitidas_pd = []
+            for i in range(1, 36):
+                ruta = os.path.join(CARPETA_PRUEBAS, f"Prueba{i}.txt")
+                if not os.path.exists(ruta):
+                    continue
+                try:
+                    red = cargar_red_social(ruta)
+                    inicio = time.perf_counter()
+                    _, _, ext_v = modexV(red)
+                    t_v = time.perf_counter() - inicio
 
-            inicio = time.perf_counter()
-            _, _, ext_v = modexV(red)
-            t_v = time.perf_counter() - inicio
+                    celdas = (red.n + 1) * (red.r_max + 1)
+                    if celdas > UMBRAL_CELDAS_PD:
+                        ext_pd = "-"
+                        t_pd = "-"
+                        brecha = "-"
+                        omitidas_pd.append(f"Prueba{i} ({celdas:,} celdas)")
+                    else:
+                        inicio = time.perf_counter()
+                        _, _, ext_pd = modexPD(red)
+                        t_pd = time.perf_counter() - inicio
+                        brecha = f"{comparar_optimalidad(ext_v, ext_pd):.2f}%"
+                        ext_pd = f"{ext_pd:.6f}"
+                        t_pd = f"{t_pd:.4f}"
+                    filas.append(
+                        (red.n, red.r_max, f"{ext_v:.6f}", ext_pd, f"{t_v:.4f}", t_pd, brecha)
+                    )
+                except Exception as exc:
+                    self.after(0, lambda error=exc, archivo=ruta: self._on_error(f"Error en {archivo}: {error}"))
+                    return
+            self.after(0, lambda: self._mostrar_bateria(filas, omitidas_pd))
 
-            try:
-                _, _, ext_pd = modexPD(red)
-            except NotImplementedError:
-                ext_pd = float("nan")
-                t_pd = float("nan")
-            else:
-                t_pd = 0.0
+        threading.Thread(target=tarea, daemon=True).start()
 
-            brecha = "-"
-            if not (ext_pd != ext_pd):
-                brecha = f"{((ext_v - ext_pd) / ext_pd) * 100.0:.2f}%" if ext_pd != 0 else "0.00%"
-
-            self.bateria_tree.insert(
-                "",
-                "end",
-                values=(red.n, red.r_max, f"{ext_v:.6f}", "PD" if str(ext_pd) == "nan" else f"{ext_pd:.6f}", f"{t_v:.4f}", "-" if str(t_pd) == "nan" else f"{t_pd:.4f}", brecha),
+    def _mostrar_bateria(self, filas, omitidas_pd):
+        for fila in filas:
+            self.bateria_tree.insert("", "end", values=fila)
+        self.estado_label.set("Batería terminada.")
+        mensaje = f"Se procesaron {len(filas)} pruebas."
+        if omitidas_pd:
+            mensaje += (
+                "\nSe omitió PD por uso potencialmente alto de memoria en: "
+                + ", ".join(omitidas_pd)
             )
-
-        messagebox.showinfo("Batería", "Se ejecutó la batería de 35 pruebas.")
+        messagebox.showinfo("Batería", mensaje)
 
     def exportar_bateria_csv(self):
         if not self.bateria_tree.get_children():

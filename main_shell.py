@@ -3,10 +3,11 @@ import time
 
 from calculos import es_aplicable, esfuerzo, extremismo
 from red_social import cargar_red_social
-from soluciones import modexFB, modexV
+from soluciones import modexFB, modexPD, modexV
 
 CARPETA_PRUEBAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Bateria de pruebas")
 TEST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests")
+UMBRAL_CELDAS_PD = 1_000_000
 
 
 def ruta_prueba(numero):
@@ -46,12 +47,19 @@ def menu():
         print(f"Red cargada: n={red.n}, R_max={red.r_max}")
         print(f"Extremismo de la red: {extremismo(red):.4f}")
 
-        print("Resolviendo con fuerza bruta...")
-        start_time = time.perf_counter()
-        E, Esf, Ext = modexFB(red)
-        end_time = time.perf_counter()
-        print(f"Fuerza bruta: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
-        print(f"Tiempo de ejecución: {end_time - start_time:.6f} segundos")
+        if red.n > 25:
+            continuar = input(
+                f"Fuerza bruta es O(2^n) y n={red.n}. ¿Ejecutarla? (s/N): "
+            ).strip().lower() == "s"
+        else:
+            continuar = True
+        if continuar:
+            print("Resolviendo con fuerza bruta...")
+            start_time = time.perf_counter()
+            E, Esf, Ext = modexFB(red)
+            end_time = time.perf_counter()
+            print(f"Fuerza bruta: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
+            print(f"Tiempo de ejecución: {end_time - start_time:.6f} segundos")
 
         print("Resolviendo con algoritmo voraz...")
         start_time = time.perf_counter()
@@ -59,6 +67,22 @@ def menu():
         end_time = time.perf_counter()
         print(f"Algoritmo voraz: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
         print(f"Tiempo de ejecución: {end_time - start_time:.6f} segundos")
+
+        celdas_pd = red.n * (red.r_max + 1)
+        if celdas_pd > UMBRAL_CELDAS_PD:
+            continuar = input(
+                f"La tabla de PD tendrá aproximadamente {celdas_pd:,} celdas "
+                "y podría consumir mucha memoria. ¿Continuar? (s/N): "
+            ).strip().lower() == "s"
+        else:
+            continuar = True
+        if continuar:
+            print("Resolviendo con programación dinámica...")
+            start_time = time.perf_counter()
+            E, Esf, Ext = modexPD(red)
+            end_time = time.perf_counter()
+            print(f"Programación dinámica: E={E}, Esfuerzo={Esf}, Extremismo={Ext:.4f}")
+            print(f"Tiempo de ejecución: {end_time - start_time:.6f} segundos")
 
 
 def main():

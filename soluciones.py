@@ -64,10 +64,24 @@ def modexV(red):
 
 
 def modexPD(red):
-    """Solución de programación dinámica para el problema de ModEx.
+    n, R = red.n, red.r_max
+    c = [costo_agente(a) for a in red.agentes]
+    v = [aporte_agente(a) for a in red.agentes]
 
-    """
-    raise NotImplementedError(
-        "modexPD aún no está implementado. Deja este punto listo para que lo completes en la solución final."
-    )
+    # M[i][j] = max extremismo eliminado con los agentes 0..i-1 y presupuesto j
+    M = [[0.0] * (R + 1) for _ in range(n + 1)]
+    for i in range(1, n + 1):
+        ci, vi = c[i-1], v[i-1]
+        for j in range(R + 1):
+            M[i][j] = M[i-1][j]                      # no moderar al agente i-1
+            if ci <= j and M[i-1][j-ci] + vi > M[i][j]:
+                M[i][j] = M[i-1][j-ci] + vi          # moderarlo
 
+    # Recuperar E recorriendo la tabla hacia atrás
+    E = [0] * n
+    j = R
+    for i in range(n, 0, -1):
+        if M[i][j] != M[i-1][j]:    # el valor cambió => el agente i-1 fue moderado
+            E[i-1] = 1
+            j -= c[i-1]
+    return evaluar(red, E)
