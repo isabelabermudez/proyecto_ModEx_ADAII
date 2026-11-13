@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 import time
 import tkinter as tk
@@ -11,8 +12,18 @@ from red_social import cargar_red_social
 from soluciones import modexFB, modexV, modexPD
 from verificacion import comparar_optimalidad, verificar_estrategia
 
-CARPETA_PRUEBAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Bateria de pruebas")
-UMBRAL_CELDAS_PD = 1_000_000
+CARPETA_PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CARPETA_PRUEBAS = os.path.join(CARPETA_PROYECTO, "Bateria de pruebas")
+UMBRAL_CELDAS_PD = 15_000_000
+
+
+def _listar_pruebas(carpeta):
+    pruebas = []
+    for nombre in os.listdir(carpeta):
+        coincidencia = re.fullmatch(r"Prueba(\d+)\.txt", nombre, re.IGNORECASE)
+        if coincidencia and os.path.isfile(os.path.join(carpeta, nombre)):
+            pruebas.append((int(coincidencia.group(1)), nombre, os.path.join(carpeta, nombre)))
+    return sorted(pruebas)
 
 
 class ModExApp(tk.Tk):
@@ -24,7 +35,6 @@ class ModExApp(tk.Tk):
 
         self.red = None
         self.resultado_actual = None
-        self.limite_fb = 25
         self.algoritmos = {
             "Fuerza bruta": modexFB,
             "Voraz": modexV,
@@ -199,13 +209,15 @@ class ModExApp(tk.Tk):
         top = ttk.Frame(frame)
         top.pack(fill="x", pady=(0, 10))
 
-        self.umbral_fb = tk.StringVar(value="25")
-        ttk.Label(top, text="Umbral FB:").pack(side="left", padx=(0, 8))
-        ttk.Entry(top, textvariable=self.umbral_fb, width=8).pack(side="left", padx=(0, 10))
-        ttk.Button(top, text="Ejecutar batería (35 pruebas)", command=self.ejecutar_bateria).pack(side="left")
+        ttk.Button(top, text="Ejecutar batería ", command=self.ejecutar_bateria).pack(side="left")
         ttk.Button(top, text="Exportar CSV de batería", command=self.exportar_bateria_csv).pack(side="left", padx=(10, 0))
 
-        self.bateria_tree = ttk.Treeview(frame, columns=("n", "r_max", "ext_v", "ext_pd", "t_v", "t_pd", "brecha"), show="headings")
+        self.bateria_tree = ttk.Treeview(
+            frame,
+            columns=("prueba", "n", "r_max", "ext_v", "ext_pd", "t_v", "t_pd", "brecha"),
+            show="headings",
+        )
+        self.bateria_tree.heading("prueba", text="Prueba")
         self.bateria_tree.heading("n", text="n")
         self.bateria_tree.heading("r_max", text="R_max")
         self.bateria_tree.heading("ext_v", text="Ext Voraz")
@@ -283,13 +295,11 @@ class ModExApp(tk.Tk):
         nombre = self.alg_sel.get()
         fn = self.algoritmos[nombre]
 
-        if nombre == "Fuerza bruta" and self.red.n > self.limite_fb:
-            confirmar = messagebox.askyesno(
-                "Confirmación",
-                f"Fuerza bruta es O(2^n) y con n={self.red.n} puede tardar mucho. ¿Continuar?",
-            )
-            if not confirmar:
-                return
+        if nombre == "Fuerza bruta" and not messagebox.askyesno(
+            "Confirmación",
+            f"Fuerza bruta es O(2^n) y con n={self.red.n} puede tardar mucho. ¿Continuar?",
+        ):
+            return
 
         if nombre == "Programación dinámica":
             if not self._confirmar_memoria_pd(self.red):
@@ -454,6 +464,11 @@ class ModExApp(tk.Tk):
             return
 
         red = self.red
+        if not messagebox.askyesno(
+            "Confirmar comparación",
+            "La comparación incluye Fuerza Bruta (O(2^n)) y puede tardar mucho. ¿Continuar?",
+        ):
+            return
         if not self._confirmar_memoria_pd(red):
             return
 
@@ -465,8 +480,6 @@ class ModExApp(tk.Tk):
             algoritmos = [("Fuerza bruta", modexFB), ("Voraz", modexV), ("Programación dinámica", modexPD)]
             ext_optimo = None
             for nombre, fn in algoritmos:
-                if nombre == "Fuerza bruta" and red.n > self.limite_fb:
-                    continue
                 inicio = time.perf_counter()
                 try:
                     E, es, ext = fn(red)
@@ -585,16 +598,18 @@ class ModExApp(tk.Tk):
             messagebox.showwarning("Sin batería", f"No existe: {CARPETA_PRUEBAS}")
             return
 
+        pruebas = _listar_pruebas(CARPETA_PRUEBAS)
+        if not pruebas:
+            messagebox.showwarning("Sin pruebas", "No se encontraron archivos Prueba<N>.txt.")
+            return
+
         self.bateria_tree.delete(*self.bateria_tree.get_children())
         self.estado_label.set("Ejecutando batería...")
 
         def tarea():
             filas = []
-            omitidas_pd = []
-            for i in range(1, 36):
-                ruta = os.path.join(CARPETA_PRUEBAS, f"Prueba{i}.txt")
-                if not os.path.exists(ruta):
-                    continue
+            omitidas_pd = 0
+            for _, nombre_prueba, ruta in pruebas:
                 try:
                     red = cargar_red_social(ruta)
                     inicio = time.perf_counter()
@@ -606,7 +621,7 @@ class ModExApp(tk.Tk):
                         ext_pd = "-"
                         t_pd = "-"
                         brecha = "-"
-                        omitidas_pd.append(f"Prueba{i} ({celdas:,} celdas)")
+                        omitidas_pd += 1
                     else:
                         inicio = time.perf_counter()
                         _, _, ext_pd = modexPD(red)
@@ -615,24 +630,23 @@ class ModExApp(tk.Tk):
                         ext_pd = f"{ext_pd:.6f}"
                         t_pd = f"{t_pd:.4f}"
                     filas.append(
-                        (red.n, red.r_max, f"{ext_v:.6f}", ext_pd, f"{t_v:.4f}", t_pd, brecha)
+                        (nombre_prueba, red.n, red.r_max, f"{ext_v:.6f}", ext_pd, f"{t_v:.4f}", t_pd, brecha)
                     )
                 except Exception as exc:
                     self.after(0, lambda error=exc, archivo=ruta: self._on_error(f"Error en {archivo}: {error}"))
                     return
-            self.after(0, lambda: self._mostrar_bateria(filas, omitidas_pd))
+            self.after(0, lambda: self._mostrar_bateria(filas, len(pruebas), omitidas_pd))
 
         threading.Thread(target=tarea, daemon=True).start()
 
-    def _mostrar_bateria(self, filas, omitidas_pd):
+    def _mostrar_bateria(self, filas, total_pruebas, omitidas_pd):
         for fila in filas:
             self.bateria_tree.insert("", "end", values=fila)
         self.estado_label.set("Batería terminada.")
-        mensaje = f"Se procesaron {len(filas)} pruebas."
+        mensaje = f"Se procesaron {len(filas)} de {total_pruebas} pruebas encontradas."
         if omitidas_pd:
             mensaje += (
-                "\nSe omitió PD por uso potencialmente alto de memoria en: "
-                + ", ".join(omitidas_pd)
+                f"\nPD no se ejecutó en {omitidas_pd} pruebas por el tamaño de su tabla."
             )
         messagebox.showinfo("Batería", mensaje)
 
@@ -644,7 +658,7 @@ class ModExApp(tk.Tk):
         if not ruta:
             return
         filas = [self.bateria_tree.item(child, "values") for child in self.bateria_tree.get_children()]
-        guardar_csv(ruta, ["n", "r_max", "ext_v", "ext_pd", "t_v", "t_pd", "brecha"], filas)
+        guardar_csv(ruta, ["prueba", "n", "r_max", "ext_v", "ext_pd", "t_v", "t_pd", "brecha"], filas)
         messagebox.showinfo("CSV", f"CSV exportado en {ruta}")
 
 

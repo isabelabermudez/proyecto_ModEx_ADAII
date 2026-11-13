@@ -9,12 +9,13 @@ Archivos importantes
 - red_social.py: modelos Agente y RedSocial; carga de entrada.
 - calculos.py: funciones de costo, aporte, esfuerzo, extremismo y validación.
 - soluciones.py: implementaciones de modexFB, modexV y modexPD.
-- gui.py: interfaz gráfica principal con Tkinter.
+- ui/gui.py: interfaz gráfica principal con Tkinter.
+- ui/run_interface.py: lanzador de la interfaz gráfica.
 - generador.py: generador de casos.
 - io_salida.py: lectura/escritura de archivos de entrada y salida.
 - verificacion.py: comprobación de esfuerzo y validación del costo.
-- main_shell.py: menú de consola para ejecutar los algoritmos sobre pruebas de la batería.
-- run_interface.py: lanzador de la interfaz gráfica.
+- shell_interface.py: menú de consola para ejecutar los algoritmos sobre pruebas de la batería.
+- distribucion.py: menú de consola para analizar y graficar la distribución de razones en una prueba.
 
 Requisitos
 ----------
@@ -25,10 +26,24 @@ Ejecución
 ---------
 1. Abre una terminal en la carpeta del proyecto.
 2. Ejecuta:
-   python run_interface.py
+   python -m ui.run_interface
 
 Para usar el menú de consola:
-   python main_shell.py
+   python shell_interface.py
+
+Para analizar la distribución de razones de una prueba:
+   python distribucion.py
+
+El programa permite elegir un algoritmo y una prueba de "Bateria de pruebas".
+Guarda un histograma SVG y un CSV con la razón de cada agente y su posición
+en el orden voraz dentro de "resultados_distribucion". También informa por
+separado el tiempo del cálculo/ordenamiento de razones y el tiempo del algoritmo
+seleccionado. El histograma usa escala logarítmica. Para facilitar el análisis,
+los costos cero se representan con razón 30000; el CSV los marca en la columna
+"costo_cero" para distinguirlos de razones calculadas. La distribución describe
+la heurística voraz aunque se seleccione fuerza bruta o programación dinámica.
+Para evitar ejecuciones inabordables, fuerza bruta se limita a n <= 25 y
+programación dinámica a tablas de hasta 1.000.000 celdas.
 
 Qué hace la interfaz
 --------------------
