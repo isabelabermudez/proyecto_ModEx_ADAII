@@ -40,6 +40,8 @@ def modexFB(red):
     explorar(0, 0, 0)
     return evaluar(red, mejor["E"])   # Devuelve la tripleta (E, Esfuerzo(RS, E), Ext(Mod(RS, E))
 
+
+
 ## Funcion que implementa el algoritmo voraz para resolver el problema de ModEx. No garantiza la mejor solución, pero es eficiente y rápida.
 def modexV(red):
     n = red.n
@@ -63,48 +65,8 @@ def modexV(red):
     return evaluar(red, E)   # Devuelve la tripleta (E, Esfuerzo(RS, E), Ext(Mod(RS, E))
 
 
-def counting_sort_inplace(arr: list[int], max_val: int = 30000) -> None:
-    if not arr:
-        return
-
-    conteo = [0] * (max_val + 1)
-    for val in arr:
-        if not 0 <= val <= max_val:
-            raise ValueError(f"El valor {val} está fuera de [0, {max_val}]")
-        conteo[val] += 1
-
-    idx = 0
-    for val, freq in enumerate(conteo):
-        if freq > 0:
-            arr[idx:idx + freq] = [val] * freq
-            idx += freq
 
 
-def modexV2(red):
-    n = red.n
-    costos = [costo_agente(a) for a in red.agentes]
-    aportes = [aporte_agente(a) for a in red.agentes]
-    razones = [
-        30000 if costos[i] == 0 else round(aportes[i] / costos[i])
-        for i in range(n)
-    ]
-
-    indices_por_razon = {}
-    for i, razon in enumerate(razones):
-        indices_por_razon.setdefault(razon, []).append(i)
-
-    counting_sort_inplace(razones)
-    razones.reverse()
-
-    E = [0] * n
-    esfuerzo_total = 0
-    for razon in razones:
-        i = indices_por_razon[razon].pop()
-        if esfuerzo_total + costos[i] <= red.r_max:
-            E[i] = 1
-            esfuerzo_total += costos[i]
-
-    return evaluar(red, E)
 
 
 def modexPD(red):
